@@ -1,0 +1,48 @@
+# Render deployment blueprint for the Palatine History Chatbot.
+#
+# One-time setup:
+#   1. Push this repo to GitHub (already done).
+#   2. Go to https://dashboard.render.com  ->  New  ->  Blueprint.
+#   3. Connect this repository and select this file.
+#   4. When prompted, paste your ANTHROPIC_API_KEY (kept as a secret).
+#   5. Deploy. Render gives you a public https URL like
+#        https://palatine-history-chatbot.onrender.com
+#
+# The build step installs deps and pre-builds the search index so the first
+# request is fast.
+services:
+  - type: web
+    name: palatine-history-chatbot
+    runtime: python
+    plan: free                     # bump to "starter" for always-on + a disk
+    rootDir: palatine-history-chatbot
+    buildCommand: "pip install -r requirements.txt && python -m src.ingest"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --preload"
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: AI_PROVIDER
+        value: claude
+      - key: CLAUDE_MODEL
+        value: claude-opus-4-8
+      - key: ANTHROPIC_API_KEY
+        sync: false                # you enter this in the Render dashboard
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # Public-site guardrails (tune as you like):
+      - key: RATE_LIMIT_ASK
+        value: "20 per minute;200 per day"
+      - key: RATE_LIMIT_UPLOAD
+        value: "5 per minute;30 per day"
+      - key: MAX_UPLOAD_MB
+        value: "10"
+
+    # ---- Optional: persist uploaded photos & transcriptions -----------------
+    # The free plan has an ephemeral filesystem, so photos uploaded through the
+    # site are LOST on the next deploy/restart (the seeded records survive
+    # because they're in git). To keep uploads, switch to a paid plan and
+    # uncomment this disk, then set MY_DOCUMENTS_DIR to /var/data via env.
+    # disk:
+    #   name: uploads
+    #   mountPath: /var/data
+    #   sizeGB: 1

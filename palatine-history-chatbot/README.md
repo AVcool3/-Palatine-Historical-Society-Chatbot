@@ -36,6 +36,10 @@ python cli.py                # chat in the terminal
 > transcription). Set `ANTHROPIC_API_KEY`, or `AI_PROVIDER=local` with
 > [Ollama](https://ollama.com), for full features.
 
+> **Want it on a public website?** See **[DEPLOY.md](./DEPLOY.md)** — one-click
+> deploy to Render (free tier) with a `render.yaml`, plus a `Dockerfile` for
+> any other host. Rate limiting and upload caps are built in for public use.
+
 ---
 
 ## Adding more information

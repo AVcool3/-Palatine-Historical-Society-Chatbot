@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+data/search_index.json
+data/my_documents/photos/*
+!data/my_documents/photos/README.txt
+.git/

@@ -62,6 +62,15 @@ TOP_K = int(os.getenv("TOP_K", "6"))
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "5000"))
 
+# Max size of an uploaded photo, in megabytes.
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "10"))
+
+# Rate limits for a public deployment (used if Flask-Limiter is installed).
+# Format is Flask-Limiter syntax, e.g. "30 per hour" or "5 per minute".
+RATE_LIMIT_DEFAULT = os.getenv("RATE_LIMIT_DEFAULT", "120 per hour")
+RATE_LIMIT_ASK = os.getenv("RATE_LIMIT_ASK", "20 per minute;200 per day")
+RATE_LIMIT_UPLOAD = os.getenv("RATE_LIMIT_UPLOAD", "5 per minute;30 per day")
+
 # --- Scraper ---------------------------------------------------------------
 HISTORICAL_SOCIETY_URL = os.getenv(
     "HISTORICAL_SOCIETY_URL", "https://palatinehistoricalsociety.com"
