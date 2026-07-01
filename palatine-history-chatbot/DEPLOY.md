@@ -36,7 +36,7 @@ the site runs in free search-only mode.
 
 1. Go to the **Render dashboard** → **New** → **Blueprint**.
 2. **Connect** your GitHub account and pick this repository.
-3. Render detects [`render.yaml`](./render.yaml) and shows a service named
+3. Render detects [`render.yaml`](../render.yaml) (at the repo root) and shows a service named
    **palatine-history-chatbot**. Click **Apply**.
 4. When prompted for the **`GEMINI_API_KEY`** environment variable, paste your
    free key. (It's stored as a secret — `sync: false` — and never committed.

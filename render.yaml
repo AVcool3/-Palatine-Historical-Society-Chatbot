@@ -1,11 +1,15 @@
 # Render deployment blueprint for the Palatine History Chatbot.
 #
+# This file MUST live at the repository root for Render to find it.
+# The app itself lives in the palatine-history-chatbot/ subfolder, which is
+# handled by `rootDir` below.
+#
 # One-time setup:
-#   1. Push this repo to GitHub (already done).
-#   2. Go to https://dashboard.render.com  ->  New  ->  Blueprint.
-#   3. Connect this repository and select this file.
-#   4. When prompted, paste your ANTHROPIC_API_KEY (kept as a secret).
-#   5. Deploy. Render gives you a public https URL like
+#   1. Go to https://dashboard.render.com  ->  New  ->  Blueprint.
+#   2. Connect this repository (Render reads this file automatically).
+#   3. When prompted, paste your free GEMINI_API_KEY (kept as a secret), or
+#      leave it blank to run 100% free search-only mode.
+#   4. Deploy. Render gives you a public https URL like
 #        https://palatine-history-chatbot.onrender.com
 #
 # The build step installs deps and pre-builds the search index so the first
