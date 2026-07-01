@@ -37,7 +37,9 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".tif", "
 
 # --- AI backend ------------------------------------------------------------
 # Which provider powers chat answers and photo transcription.
-# One of: "claude", "openai", "local".
+# One of: "claude", "openai", "gemini", "local".
+#   * gemini -> free tier (chat + photo transcription), needs a free API key
+#   * If the chosen provider has no key, the app runs free "search-only" mode.
 AI_PROVIDER = os.getenv("AI_PROVIDER", "claude").lower()
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -46,6 +48,10 @@ CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-8")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+# Google Gemini (free tier). Get a free key at https://aistudio.google.com/apikey
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 # For AI_PROVIDER=local: a local Ollama-compatible endpoint + model.
 LOCAL_MODEL = os.getenv("LOCAL_MODEL", "llama3.2")

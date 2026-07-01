@@ -6,12 +6,28 @@ screens and paste your API key.
 
 ---
 
+## Cost: how to run this 100% free
+
+There are two separate costs, and both can be **$0**:
+
+| Part | Free option |
+|------|-------------|
+| **Hosting** | Render **free tier** — $0. (Site sleeps after ~15 min idle and takes ~30–60s to wake.) |
+| **The AI** | **Google Gemini free tier** — real answers + photo transcription, free within Google's daily limits, no credit card. This repo defaults to it. |
+
+If the Gemini free quota is ever hit, the site automatically falls back to
+**search mode** (keyword search over the history) — which is always free and
+never fails. You can also skip the AI entirely: leave `GEMINI_API_KEY` blank and
+the site runs in free search-only mode.
+
+> Prefer higher-quality answers and don't mind paying? Set `AI_PROVIDER=claude`
+> with an `ANTHROPIC_API_KEY` instead — everything else is identical.
+
 ## What you need
 
 - The GitHub repo this project lives in (you have it).
-- An **Anthropic API key** (starts with `sk-ant-…`) from
-  https://console.anthropic.com — this powers the answers and photo
-  transcription, and Anthropic bills you per use.
+- A **free Google Gemini API key** from https://aistudio.google.com/apikey
+  (sign in with a Google account, click "Create API key" — no credit card).
 - A free **Render** account: https://render.com
 
 ---
@@ -22,8 +38,9 @@ screens and paste your API key.
 2. **Connect** your GitHub account and pick this repository.
 3. Render detects [`render.yaml`](./render.yaml) and shows a service named
    **palatine-history-chatbot**. Click **Apply**.
-4. When prompted for the **`ANTHROPIC_API_KEY`** environment variable, paste
-   your key. (It's stored as a secret — `sync: false` — and never committed.)
+4. When prompted for the **`GEMINI_API_KEY`** environment variable, paste your
+   free key. (It's stored as a secret — `sync: false` — and never committed.
+   Leave it blank to deploy in free search-only mode.)
 5. Click **Create / Deploy**. The build runs
    `pip install -r requirements.txt && python -m src.ingest`, then starts the
    app with gunicorn.
@@ -46,21 +63,24 @@ Render redeploys automatically whenever you push to the repo
 
 ---
 
-## Since the site is public — cost & abuse protection
+## Since the site is public — abuse protection
 
-Every question and photo hits the paid AI backend, so a public URL means
-strangers can run up your bill. This project ships with guardrails:
+On the **free Gemini tier there is no bill to run up** — Google simply caps you
+at the free daily limit, after which the site falls back to search mode until
+the quota resets. So a public URL can't cost you money on the default setup.
+
+The project still ships with guardrails to keep the free quota from being
+burned in minutes and to protect the server:
 
 - **Per-IP rate limits** (via Flask-Limiter) — defaults:
   - Ask: `20/minute`, `200/day`
   - Upload/reindex: `5/minute`, `30/day`
   - Tune with the `RATE_LIMIT_ASK` / `RATE_LIMIT_UPLOAD` env vars.
 - **Upload size cap:** `MAX_UPLOAD_MB` (default 10 MB).
-- **Set a monthly spend limit** in the Anthropic console
-  (Billing → Usage limits) as a hard backstop — strongly recommended.
 
-If abuse becomes a problem, the easiest next step is to add a shared password;
-ask and it can be added.
+If you switch to a **paid** backend (Claude/OpenAI), then strangers *can* cost
+you money — in that case also set a monthly spend limit in that provider's
+console as a hard backstop.
 
 ---
 

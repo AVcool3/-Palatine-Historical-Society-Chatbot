@@ -21,11 +21,14 @@ services:
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
+      # FREE setup: Gemini free tier for answers + photo transcription.
+      # Paste a free key from https://aistudio.google.com/apikey when prompted.
+      # (Leave GEMINI_API_KEY blank to run 100% free search-only mode.)
       - key: AI_PROVIDER
-        value: claude
-      - key: CLAUDE_MODEL
-        value: claude-opus-4-8
-      - key: ANTHROPIC_API_KEY
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: GEMINI_API_KEY
         sync: false                # you enter this in the Render dashboard
       - key: PYTHON_VERSION
         value: "3.11.9"

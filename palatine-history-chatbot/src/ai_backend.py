@@ -33,6 +33,8 @@ def is_configured() -> bool:
         return bool(config.ANTHROPIC_API_KEY)
     if config.AI_PROVIDER == "openai":
         return bool(config.OPENAI_API_KEY)
+    if config.AI_PROVIDER == "gemini":
+        return bool(config.GEMINI_API_KEY)
     if config.AI_PROVIDER == "local":
         return True  # assume a local server is running
     return False
@@ -45,6 +47,8 @@ def generate_answer(system_prompt: str, user_prompt: str) -> str:
         return _claude_chat(system_prompt, user_prompt)
     if provider == "openai":
         return _openai_chat(system_prompt, user_prompt)
+    if provider == "gemini":
+        return _gemini_chat(system_prompt, user_prompt)
     if provider == "local":
         return _local_chat(system_prompt, user_prompt)
     raise BackendError(f"Unknown AI_PROVIDER: {provider!r}")
@@ -64,6 +68,8 @@ def transcribe_image(image_path: Path, instructions: Optional[str] = None) -> st
         return _claude_vision(image_path, prompt)
     if provider == "openai":
         return _openai_vision(image_path, prompt)
+    if provider == "gemini":
+        return _gemini_vision(image_path, prompt)
     if provider == "local":
         return _tesseract_ocr(image_path)
     raise BackendError(f"Unknown AI_PROVIDER: {provider!r}")
@@ -162,6 +168,70 @@ def _openai_vision(image_path: Path, prompt: str) -> str:
 
 
 # --------------------------------------------------------------------------
+# Google Gemini (free tier: chat + vision transcription)
+# --------------------------------------------------------------------------
+def _gemini_client():
+    if not config.GEMINI_API_KEY:
+        raise BackendError(
+            "GEMINI_API_KEY is not set. Get a free key at "
+            "https://aistudio.google.com/apikey and add it to your environment "
+            "or .env (no credit card required)."
+        )
+    try:
+        from google import genai
+    except Exception as exc:  # not installed, or a broken transitive dep
+        raise BackendError(
+            "Could not load the 'google-genai' package. Run: pip install google-genai"
+        ) from exc
+    return genai.Client(api_key=config.GEMINI_API_KEY)
+
+
+def _gemini_chat(system_prompt: str, user_prompt: str) -> str:
+    from google.genai import types
+
+    client = _gemini_client()
+    try:
+        resp = client.models.generate_content(
+            model=config.GEMINI_MODEL,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=1024,
+            ),
+        )
+    except Exception as exc:  # quota exhausted, network, etc. -> graceful fallback
+        raise BackendError(_gemini_error_hint(exc)) from exc
+    return (resp.text or "").strip()
+
+
+def _gemini_vision(image_path: Path, prompt: str) -> str:
+    from google.genai import types
+
+    client = _gemini_client()
+    media_type, raw = _image_bytes(image_path)
+    try:
+        resp = client.models.generate_content(
+            model=config.GEMINI_MODEL,
+            contents=[
+                types.Part.from_bytes(data=raw, mime_type=media_type),
+                prompt,
+            ],
+            config=types.GenerateContentConfig(max_output_tokens=2048),
+        )
+    except Exception as exc:
+        raise BackendError(_gemini_error_hint(exc)) from exc
+    return (resp.text or "").strip()
+
+
+def _gemini_error_hint(exc: Exception) -> str:
+    msg = str(exc)
+    if "429" in msg or "quota" in msg.lower() or "RESOURCE_EXHAUSTED" in msg:
+        return ("Gemini free-tier limit reached for now — try again later "
+                "(the site keeps working in search mode meanwhile).")
+    return f"Gemini request failed: {msg}"
+
+
+# --------------------------------------------------------------------------
 # Local (Ollama chat + Tesseract OCR)
 # --------------------------------------------------------------------------
 def _local_chat(system_prompt: str, user_prompt: str) -> str:
@@ -205,13 +275,18 @@ def _tesseract_ocr(image_path: Path) -> str:
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------
-def _encode_image(image_path: Path) -> tuple[str, str]:
+def _image_bytes(image_path: Path) -> tuple[str, bytes]:
+    """Return (media_type, raw_bytes) for a vision API, converting formats the
+    vision models don't accept (HEIC/TIFF/BMP) to PNG."""
     media_type = mimetypes.guess_type(str(image_path))[0] or "image/jpeg"
-    # HEIC/TIFF aren't accepted by the vision APIs; convert to PNG if needed.
     if media_type not in {"image/jpeg", "image/png", "image/gif", "image/webp"}:
-        media_type, raw = _convert_to_png(image_path)
-    else:
-        raw = image_path.read_bytes()
+        return _convert_to_png(image_path)
+    return media_type, image_path.read_bytes()
+
+
+def _encode_image(image_path: Path) -> tuple[str, str]:
+    """Return (media_type, base64_data) for APIs that want base64."""
+    media_type, raw = _image_bytes(image_path)
     return media_type, base64.standard_b64encode(raw).decode("ascii")
 
 
