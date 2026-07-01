@@ -1,0 +1,21 @@
+# Secrets & local config
+.env
+
+# Generated search index (rebuilt from source docs)
+data/search_index.json
+
+# Uploaded/transcribed photos are personal — keep them local by default.
+# (Remove these lines if you WANT to commit your own documents & photos.)
+data/my_documents/photos/*
+!data/my_documents/photos/README.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db

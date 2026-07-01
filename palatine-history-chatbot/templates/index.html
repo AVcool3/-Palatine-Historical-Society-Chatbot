@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palatine History Chatbot</title>
+  <style>
+    :root { --bg:#f4f1ea; --panel:#fff; --accent:#6b4226; --accent2:#9c6b3f; --text:#2b2b2b; --muted:#7a7a7a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Georgia, 'Times New Roman', serif; background:var(--bg); color:var(--text); }
+    header { background:var(--accent); color:#fff; padding:18px 24px; }
+    header h1 { margin:0; font-size:22px; letter-spacing:.5px; }
+    header p { margin:4px 0 0; font-size:13px; opacity:.85; }
+    .wrap { max-width:840px; margin:0 auto; padding:20px 16px 120px; }
+    .msg { padding:14px 16px; border-radius:10px; margin:12px 0; line-height:1.5; white-space:pre-wrap; }
+    .user { background:#e7ddcc; margin-left:60px; }
+    .bot  { background:var(--panel); border:1px solid #e3ddd0; margin-right:40px; }
+    .bot .sources { margin-top:10px; font-size:12px; color:var(--muted); border-top:1px dashed #ddd; padding-top:8px; }
+    .tag { display:inline-block; font-size:11px; background:var(--accent2); color:#fff; border-radius:10px; padding:1px 8px; margin-left:8px; vertical-align:middle; }
+    .composer { position:fixed; bottom:0; left:0; right:0; background:var(--panel); border-top:1px solid #ddd; padding:12px 16px; }
+    .composer .inner { max-width:840px; margin:0 auto; display:flex; gap:8px; align-items:center; }
+    input[type=text] { flex:1; padding:12px 14px; border:1px solid #cbb; border-radius:8px; font-size:15px; font-family:inherit; }
+    button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:12px 18px; font-size:15px; cursor:pointer; font-family:inherit; }
+    button:hover { background:var(--accent2); }
+    button:disabled { opacity:.5; cursor:default; }
+    .iconbtn { background:#8a6d4b; padding:12px 14px; }
+    .hint { text-align:center; font-size:12px; color:var(--muted); margin-top:6px; }
+    .banner { background:#fff6e5; border:1px solid #e8d9b5; color:#7a5b1c; padding:8px 12px; border-radius:8px; font-size:13px; margin-bottom:10px; }
+    #photoInput { display:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏛️ Palatine History Chatbot</h1>
+    <p>Ask about the history of Palatine, Illinois — or upload a photo of a document to transcribe &amp; add it.</p>
+  </header>
+  <div class="wrap" id="chat">
+    {% if not configured %}
+    <div class="banner">
+      Running in <b>search-only mode</b> (no <code>{{ provider }}</code> API key detected).
+      You'll get the most relevant passages, but not AI-written answers or photo transcription.
+      Set an API key and restart for full features.
+    </div>
+    {% endif %}
+    <div class="msg bot">Hello! I can help you search the history of Palatine, Illinois.
+Try asking things like:
+  • “When was Palatine incorporated?”
+  • “Tell me about the Clayson House.”
+  • “What happened in 1993?”
+Or tap the 📷 button to upload and transcribe a photo of a document.</div>
+  </div>
+
+  <div class="composer">
+    <div class="inner">
+      <input type="file" id="photoInput" accept="image/*" />
+      <button class="iconbtn" id="photoBtn" title="Upload a photo to transcribe">📷</button>
+      <input type="text" id="q" placeholder="Ask about Palatine history…" autocomplete="off" />
+      <button id="send">Ask</button>
+    </div>
+    <div class="hint">AI backend: <b>{{ provider }}</b>{% if not configured %} (search-only){% endif %}</div>
+  </div>
+
+<script>
+const chat = document.getElementById('chat');
+const q = document.getElementById('q');
+const send = document.getElementById('send');
+const photoBtn = document.getElementById('photoBtn');
+const photoInput = document.getElementById('photoInput');
+
+function add(text, cls, sourcesHtml, tag) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.textContent = text;
+  if (tag) { const t = document.createElement('span'); t.className='tag'; t.textContent=tag; div.appendChild(t); }
+  if (sourcesHtml) { const s = document.createElement('div'); s.className='sources'; s.innerHTML = sourcesHtml; div.appendChild(s); }
+  chat.appendChild(div);
+  window.scrollTo(0, document.body.scrollHeight);
+  return div;
+}
+
+async function ask() {
+  const text = q.value.trim();
+  if (!text) return;
+  add(text, 'user');
+  q.value = '';
+  send.disabled = true;
+  const thinking = add('Searching the records…', 'bot');
+  try {
+    const r = await fetch('/api/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question: text})});
+    const data = await r.json();
+    thinking.remove();
+    let sources = '';
+    if (data.sources && data.sources.length) {
+      sources = 'Sources: ' + data.sources.map(s => `[${s.n}] ${s.source} — <i>${s.title}</i>`).join(' &nbsp; ');
+    }
+    add(data.answer || data.error || 'No answer.', 'bot', sources, data.used_ai ? 'AI' : 'search');
+  } catch (e) {
+    thinking.remove();
+    add('Error: ' + e, 'bot');
+  }
+  send.disabled = false;
+  q.focus();
+}
+
+async function uploadPhoto(file) {
+  add('📷 Uploading & transcribing ' + file.name + '…', 'user');
+  const thinking = add('Transcribing…', 'bot');
+  const fd = new FormData();
+  fd.append('photo', file);
+  try {
+    const r = await fetch('/api/upload', {method:'POST', body: fd});
+    const data = await r.json();
+    thinking.remove();
+    if (data.error) { add('Could not transcribe: ' + data.error, 'bot'); return; }
+    add('Transcription of ' + data.saved_as + ':\n\n' + data.transcription, 'bot',
+        'Saved & indexed as ' + data.transcription_file, 'transcribed');
+  } catch (e) {
+    thinking.remove();
+    add('Upload error: ' + e, 'bot');
+  }
+}
+
+send.addEventListener('click', ask);
+q.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+photoBtn.addEventListener('click', () => photoInput.click());
+photoInput.addEventListener('change', () => { if (photoInput.files[0]) uploadPhoto(photoInput.files[0]); photoInput.value=''; });
+q.focus();
+</script>
+</body>
+</html>

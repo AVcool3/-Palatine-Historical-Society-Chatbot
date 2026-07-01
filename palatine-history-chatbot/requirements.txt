@@ -1,0 +1,20 @@
+# --- Core (always needed) ---
+Flask>=3.0
+
+# --- AI backends (install the one you use) ---
+anthropic>=0.40        # AI_PROVIDER=claude  (chat + photo transcription)
+# openai>=1.40         # AI_PROVIDER=openai
+# requests>=2.31       # AI_PROVIDER=local (Ollama) and the scrapers
+
+# --- Scraping records / historical society site ---
+requests>=2.31
+beautifulsoup4>=4.12
+
+# --- Reading uploaded files ---
+pypdf>=4.0             # extract text from PDFs
+Pillow>=10.0           # read/convert images for transcription
+# pillow-heif>=0.16    # add support for iPhone .heic photos
+# pytesseract>=0.3     # only for AI_PROVIDER=local photo OCR (needs tesseract binary)
+
+# --- Convenience ---
+python-dotenv>=1.0     # load settings from a .env file
