@@ -4,8 +4,10 @@ gunicorn>=21.2         # production WSGI server (used when deployed)
 Flask-Limiter>=3.5     # per-IP rate limiting for public deployments
 
 # --- AI backends (install the one you use) ---
-anthropic>=0.40        # AI_PROVIDER=claude  (chat + photo transcription)
-# openai>=1.40         # AI_PROVIDER=openai
+# For a FREE public site, use Gemini (free tier: chat + photo transcription):
+google-genai>=0.3      # AI_PROVIDER=gemini  (free tier)
+anthropic>=0.40        # AI_PROVIDER=claude  (paid; chat + photo transcription)
+# openai>=1.40         # AI_PROVIDER=openai  (paid)
 # requests>=2.31       # AI_PROVIDER=local (Ollama) and the scrapers
 
 # --- Scraping records / historical society site ---
