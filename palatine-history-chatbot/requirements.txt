@@ -1,5 +1,7 @@
 # --- Core (always needed) ---
 Flask>=3.0
+gunicorn>=21.2         # production WSGI server (used when deployed)
+Flask-Limiter>=3.5     # per-IP rate limiting for public deployments
 
 # --- AI backends (install the one you use) ---
 anthropic>=0.40        # AI_PROVIDER=claude  (chat + photo transcription)

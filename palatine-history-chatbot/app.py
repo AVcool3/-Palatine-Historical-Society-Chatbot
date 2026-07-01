@@ -22,6 +22,34 @@ from src.retriever import BM25Retriever
 
 app = Flask(__name__)
 
+# Cap upload size to protect the server (config.MAX_UPLOAD_MB, default 10 MB).
+app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_MB * 1024 * 1024
+
+# --- Rate limiting (protects a public deployment / your API bill) ----------
+# Optional: only active if Flask-Limiter is installed. Limits are configurable
+# via env (see config.py). On a public site this stops strangers from draining
+# your AI credits or hammering the (expensive) upload+reindex endpoint.
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=[config.RATE_LIMIT_DEFAULT],
+        storage_uri="memory://",
+    )
+except Exception:  # pragma: no cover - limiter is optional
+    limiter = None
+
+
+def _limit(rule: str):
+    """Apply a rate limit decorator if Flask-Limiter is available, else no-op."""
+    if limiter is not None:
+        return limiter.limit(rule)
+    return lambda f: f
+
+
 # Lazily-built chatbot; rebuilt when new content is ingested.
 _bot: Chatbot | None = None
 
@@ -47,7 +75,14 @@ def index():
     )
 
 
+@app.get("/healthz")
+def healthz():
+    """Lightweight health check for the hosting platform."""
+    return jsonify({"status": "ok", "provider": config.AI_PROVIDER})
+
+
 @app.post("/api/ask")
+@_limit(config.RATE_LIMIT_ASK)
 def api_ask():
     question = (request.json or {}).get("question", "").strip()
     if not question:
@@ -66,6 +101,7 @@ def api_ask():
 
 
 @app.post("/api/upload")
+@_limit(config.RATE_LIMIT_UPLOAD)
 def api_upload():
     """Accept an image, transcribe it, save transcription, and re-index."""
     if "photo" not in request.files:
@@ -109,13 +145,28 @@ def api_upload():
 
 
 @app.post("/api/reindex")
+@_limit(config.RATE_LIMIT_UPLOAD)
 def api_reindex():
     get_bot(rebuild=True)
     return jsonify({"status": "ok"})
 
 
+@app.errorhandler(413)
+def too_large(_):
+    return jsonify({"error": f"File too large (max {config.MAX_UPLOAD_MB} MB)."}), 413
+
+
+@app.errorhandler(429)
+def rate_limited(_):
+    return jsonify({"error": "Too many requests — please slow down and try again shortly."}), 429
+
+
+# Warm the index at import time so it's ready under a WSGI server (gunicorn),
+# where the __main__ block below does not run.
+get_bot()
+
+
 if __name__ == "__main__":
     print(f"Palatine History Chatbot → http://{config.HOST}:{config.PORT}")
     print(f"AI provider: {config.AI_PROVIDER} (configured: {ai_backend.is_configured()})")
-    get_bot()  # warm the index at startup
     app.run(host=config.HOST, port=config.PORT, debug=False)
