@@ -31,7 +31,7 @@ services:
       - key: AI_PROVIDER
         value: gemini
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-flash-latest
       - key: GEMINI_API_KEY
         sync: false                # you enter this in the Render dashboard
       - key: PYTHON_VERSION

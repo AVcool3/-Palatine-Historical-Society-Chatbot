@@ -51,7 +51,10 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
 # Google Gemini (free tier). Get a free key at https://aistudio.google.com/apikey
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# "gemini-flash-latest" auto-tracks Google's current flash model, which keeps
+# free-tier quota even as older pinned models (e.g. gemini-2.0-flash) are
+# retired from the free tier.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
 # For AI_PROVIDER=local: a local Ollama-compatible endpoint + model.
 LOCAL_MODEL = os.getenv("LOCAL_MODEL", "llama3.2")
