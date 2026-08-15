@@ -21,7 +21,8 @@ import pandas as pd
 
 from . import config
 from .black_litterman import GrowthView, reweight_with_view
-from .broker import PaperBroker, preview_orders
+from .broker import PaperBroker
+from .config import MissingCredentialsError, require_alpaca_config
 from .data import covariance_matrix, get_price_history, mean_returns
 from .optimizer import mean_variance_weights, portfolio_stats
 from .risk_aversion import (
@@ -29,6 +30,11 @@ from .risk_aversion import (
     implied_risk_aversion,
     save_impval,
     score_questionnaire,
+)
+from .robinhood import (
+    holdings_to_weights,
+    load_holdings_from_csv,
+    load_holdings_from_robinhood,
 )
 
 
@@ -84,6 +90,53 @@ def derive_impval_via_past_portfolio() -> float:
     return lam
 
 
+def import_robinhood_weights() -> pd.Series:
+    """Load a Robinhood portfolio and return its weights (by market value)."""
+
+    print("\n--- Import a Robinhood portfolio ---")
+    how = _choose(
+        "How do you want to import it?",
+        [
+            "From a CSV export (recommended)",
+            "Live via robin_stocks login (unofficial)",
+        ],
+    )
+    if how.startswith("From a CSV"):
+        path = _ask("Path to your Robinhood positions CSV")
+        holdings = load_holdings_from_csv(path)
+    else:
+        print(
+            "NOTE: this uses your real Robinhood login via the unofficial "
+            "robin_stocks library; credentials are not stored."
+        )
+        user = _ask("Robinhood email/username")
+        pw = _ask("Robinhood password")
+        mfa = _ask("MFA code (blank if none)", "") or None
+        holdings = load_holdings_from_robinhood(user, pw, mfa)
+
+    weights = holdings_to_weights(holdings)
+    print("\nImported Robinhood allocation:")
+    for sym, wt in weights.sort_values(ascending=False).items():
+        print(f"  {sym:<6} {wt:7.2%}")
+    return weights
+
+
+def derive_impval_from_weights(weights: pd.Series) -> float:
+    """Imply risk aversion from an existing set of portfolio weights."""
+
+    tickers = list(weights.index)
+    prices = get_price_history(tickers)
+    cov = covariance_matrix(prices)
+    mu = mean_returns(prices)
+    lam = implied_risk_aversion(
+        weights.reindex(tickers).values,
+        cov.loc[tickers, tickers].values,
+        mu[tickers].values,
+    )
+    print(f"\nImplied risk-aversion parameter (impval): {lam}")
+    return lam
+
+
 def build_base_portfolio(tickers: list[str], impval: float):
     print(f"\nPulling price history & covariance for: {', '.join(tickers)} ...")
     prices = get_price_history(tickers)
@@ -109,25 +162,43 @@ def main(argv: list[str] | None = None) -> int:
     print(" Risk Aversion Parameter Tool")
     print("=" * 60)
 
+    # Alpaca paper credentials are required to run the workflow — fail fast.
+    try:
+        cfg = require_alpaca_config()
+    except MissingCredentialsError as exc:
+        print(f"\nError: {exc}")
+        return 1
+
     mode = _choose(
         "\nHow should we determine your risk-aversion parameter (impval)?",
-        ["Answer a questionnaire", "Imply it from a past portfolio"],
+        [
+            "Answer a questionnaire",
+            "Imply it from a past portfolio (enter tickers/weights)",
+            "Imply it from my Robinhood portfolio",
+        ],
     )
+    rh_weights = None
     if mode.startswith("Answer"):
         impval = derive_impval_via_questionnaire()
         meta = {"source": "questionnaire"}
-    else:
+    elif mode.startswith("Imply it from a past"):
         impval = derive_impval_via_past_portfolio()
         meta = {"source": "past_portfolio"}
+    else:
+        rh_weights = import_robinhood_weights()
+        impval = derive_impval_from_weights(rh_weights)
+        meta = {"source": "robinhood"}
 
     path = save_impval(impval, meta=meta)
     print(f"Saved impval = {impval} -> {path}")
 
+    # Default the portfolio universe to the imported Robinhood holdings if present.
+    default_tickers = (
+        ",".join(rh_weights.index) if rh_weights is not None else ",".join(config.DEFAULT_PORTFOLIO)
+    )
     tickers = [
         t.strip().upper()
-        for t in _ask(
-            "\nPortfolio tickers (comma-separated)", ",".join(config.DEFAULT_PORTFOLIO)
-        ).split(",")
+        for t in _ask("\nPortfolio tickers (comma-separated)", default_tickers).split(",")
         if t.strip()
     ]
     prices, cov, mu, weights = build_base_portfolio(tickers, impval)
@@ -157,27 +228,23 @@ def main(argv: list[str] | None = None) -> int:
         _print_weights(weights, posterior, cov)
         mu = posterior
 
-    # --- Paper trading preview ---
-    cfg = config.load_alpaca_config()
-    if cfg.is_configured:
-        try:
-            broker = PaperBroker(cfg)
-            equity = broker.account_equity()
-            print(f"\nAlpaca paper account equity: ${equity:,.2f}")
-            orders = broker.plan_orders(weights, equity=equity)
-            for o in orders:
-                print(f"  {o.side.upper()} {o.symbol:<6} ${o.notional:,.2f} ({o.target_weight:.2%})")
-            if _ask("Submit these orders to the PAPER account? (y/n)", "n").lower().startswith("y"):
-                broker.submit_orders(orders)
-                print("Orders submitted to paper account.")
-            else:
-                print("Preview only — nothing submitted.")
-        except Exception as exc:  # network / credential issues
-            print(f"\n[Alpaca skipped] {exc}")
+    # --- Paper trading (Alpaca credentials guaranteed present above) ---
+    broker = PaperBroker(cfg)
+    try:
+        equity = broker.account_equity()
+    except Exception as exc:  # network error reaching Alpaca
+        print(f"\nError contacting Alpaca paper account: {exc}")
+        return 1
+
+    print(f"\nAlpaca paper account equity: ${equity:,.2f}")
+    orders = broker.plan_orders(weights, equity=equity)
+    for o in orders:
+        print(f"  {o.side.upper()} {o.symbol:<6} ${o.notional:,.2f} ({o.target_weight:.2%})")
+    if _ask("Submit these orders to the PAPER account? (y/n)", "n").lower().startswith("y"):
+        broker.submit_orders(orders)
+        print("Orders submitted to paper account.")
     else:
-        print("\n[Alpaca not configured] Showing a $100,000 notional preview instead.")
-        for o in preview_orders(weights, 100_000):
-            print(f"  {o.side.upper()} {o.symbol:<6} ${o.notional:,.2f} ({o.target_weight:.2%})")
+        print("Preview only — nothing submitted.")
 
     print("\nDone.")
     return 0

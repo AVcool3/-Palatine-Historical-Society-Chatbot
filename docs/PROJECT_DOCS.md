@@ -55,6 +55,12 @@ mean-variance portfolio and solve the first-order condition for `λ`:
 clamped to `[1, 10]`, with a neutral fallback when the implied value is
 non-positive.
 
+### Mode C — Implied from a Robinhood portfolio
+
+The user's live Robinhood holdings can be imported (see *Importing Robinhood*
+below), converted to weights by market value, and fed into Mode B's reverse
+optimization to imply `impval` from what they actually hold.
+
 The chosen value is persisted as `impval` via `save_impval` (JSON).
 
 ---
@@ -106,7 +112,7 @@ When a stock is added we go through the canonical Black-Litterman pipeline
 
 ---
 
-## 4. Paper trading (Alpaca)
+## 4. Paper trading (Alpaca) — required
 
 `broker.py` wraps the Alpaca **paper** Trading API:
 
@@ -115,8 +121,27 @@ When a stock is added we go through the canonical Black-Litterman pipeline
 - `submit_orders()` places them — only when explicitly confirmed.
 
 Credentials come from `.env` (`ALPACA_API_KEY`, `ALPACA_SECRET_KEY`,
-`ALPACA_PAPER=true`). With no credentials the CLI shows a `$100,000` preview
-instead.
+`ALPACA_PAPER=true`) and are **mandatory** for the interactive CLI:
+`config.require_alpaca_config()` raises `MissingCredentialsError` and the CLI
+exits with an actionable message if they are absent. (The offline demo and unit
+tests do not require them.)
+
+## 5. Importing Robinhood (`robinhood.py`)
+
+Robinhood exposes **no official public API**, so imports use one of:
+
+- **CSV export** (`load_holdings_from_csv`) — recommended, credential-free.
+  Column names are matched flexibly (`symbol`/`ticker`, `quantity`/`shares`,
+  `price`/`market_value`/`equity`); duplicate lots are summed.
+- **Live pull** (`load_holdings_from_robinhood`) — uses the unofficial
+  `robin_stocks` library with the user's login + MFA. Credentials are never
+  stored; the endpoint is undocumented and may break.
+
+`holdings_to_weights` converts a holdings table to weights by market value
+(fetching latest closes via yfinance for any missing values). `map_to_alpaca_orders`
+replicates that **allocation** (not share counts) as an Alpaca notional order
+plan. This is portfolio *mapping*, not a broker transfer — moving the actual
+account (ACATS) is out of scope.
 
 ---
 
@@ -130,6 +155,7 @@ instead.
 | `optimizer.py` | Mean-variance optimization |
 | `black_litterman.py` | Equilibrium returns, views, posterior, reweight |
 | `broker.py` | Alpaca paper-trading wrapper |
+| `robinhood.py` | Import Robinhood holdings (CSV / live) → weights → Alpaca |
 | `cli.py` | Interactive end-to-end workflow |
 
 ## Testing

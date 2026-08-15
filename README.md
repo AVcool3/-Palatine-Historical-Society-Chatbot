@@ -63,6 +63,31 @@ aversion `λ` (lambda), saved as `impval`.
 
   i.e. the risk aversion implied by treating the held portfolio as the user's
   optimal mean‑variance portfolio.
+- **Robinhood‑import mode** — import your Robinhood holdings (see below) and
+  imply `impval` from that live allocation.
+
+> **Alpaca paper credentials are required.** The interactive CLI
+> (`python -m risk_tool.cli`) will not run without `ALPACA_API_KEY` and
+> `ALPACA_SECRET_KEY`. The offline demo (`examples/example_run.py`) and the unit
+> tests still run with no keys and no network.
+
+#### Importing a Robinhood portfolio
+
+Robinhood has **no official public API**, so `risk_tool/robinhood.py` supports
+two paths:
+
+1. **CSV import (recommended, no credentials).** Export your positions to a CSV
+   and point the tool at it. Column names are matched flexibly — any of
+   `symbol`/`ticker`, `quantity`/`shares`, and `price`/`market_value`/`equity`
+   work. See `examples/robinhood_positions_sample.csv`.
+2. **Live pull via `robin_stocks` (unofficial).** Logs in with your Robinhood
+   credentials + MFA using the third‑party `robin_stocks` library. This relies
+   on an undocumented endpoint and hands over your login — prefer the CSV path.
+
+Either path yields portfolio weights that "map" onto Alpaca: imply an `impval`
+from them, or replicate the *allocation* (not share counts) on your Alpaca paper
+account, scaled to its equity. A true broker‑to‑broker transfer (ACATS) is a
+separate, account‑level process this tool does not perform.
 
 ### 2. Covariance matrix & weighting
 
@@ -104,9 +129,11 @@ risk_tool/
   optimizer.py       # mean-variance optimization
   black_litterman.py # Black-Litterman posterior + reweighting
   broker.py          # Alpaca paper-trading wrapper
+  robinhood.py       # import Robinhood holdings -> weights -> Alpaca
   cli.py             # interactive end-to-end workflow
 examples/
   example_run.py     # offline demo with synthetic data
+  robinhood_positions_sample.csv  # sample import file
 tests/               # unit tests (no network required)
 docs/
   PROJECT_DOCS.md    # design notes & math
