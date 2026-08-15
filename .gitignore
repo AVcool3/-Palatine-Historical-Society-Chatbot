@@ -15,9 +15,10 @@ env/
 .env
 
 # Tool output
-*.csv
+/*.csv
 impval.json
 portfolio_state.json
+!examples/*.csv
 
 # OS / editor
 .DS_Store

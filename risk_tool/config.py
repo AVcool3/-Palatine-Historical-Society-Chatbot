@@ -61,3 +61,26 @@ def load_alpaca_config() -> AlpacaConfig:
         secret_key=os.environ.get("ALPACA_SECRET_KEY"),
         paper=paper,
     )
+
+
+class MissingCredentialsError(RuntimeError):
+    """Raised when required Alpaca credentials are absent."""
+
+
+def require_alpaca_config() -> AlpacaConfig:
+    """Load Alpaca config, raising if it is not fully configured.
+
+    Use this on code paths where an Alpaca paper account is mandatory (the
+    interactive workflow). Fails fast with an actionable message instead of
+    silently degrading.
+    """
+
+    cfg = load_alpaca_config()
+    if not cfg.is_configured:
+        raise MissingCredentialsError(
+            "Alpaca paper credentials are required. Set ALPACA_API_KEY and "
+            "ALPACA_SECRET_KEY in your environment or .env file "
+            "(see .env.example). Create free paper keys at "
+            "https://alpaca.markets/."
+        )
+    return cfg

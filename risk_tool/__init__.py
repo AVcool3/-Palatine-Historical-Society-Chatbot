@@ -21,8 +21,14 @@ from .black_litterman import (
     black_litterman_returns,
     reweight_with_view,
 )
+from .robinhood import (
+    load_holdings_from_csv,
+    load_holdings_from_robinhood,
+    holdings_to_weights,
+    map_to_alpaca_orders,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "QUESTIONNAIRE",
@@ -38,4 +44,8 @@ __all__ = [
     "growth_view_to_return",
     "black_litterman_returns",
     "reweight_with_view",
+    "load_holdings_from_csv",
+    "load_holdings_from_robinhood",
+    "holdings_to_weights",
+    "map_to_alpaca_orders",
 ]

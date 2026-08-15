@@ -4,3 +4,6 @@ yfinance>=0.2.40
 scipy>=1.10
 python-dotenv>=1.0
 alpaca-py>=0.21
+
+# Optional: only needed for live Robinhood import (CSV import needs nothing extra).
+# robin_stocks>=3.0
